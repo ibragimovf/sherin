@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <title>Sherin</title>
+  <title>Sherin — Таблица</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
@@ -19,16 +19,17 @@
     .wrap-table100 {
       background: #fff;
       width: 100%;
-      max-width: 95%;
+      max-width: 1200px;
       padding: 20px;
       border-radius: 10px;
       box-shadow: 0 10px 30px rgba(0,0,0,.12);
-      overflow-x: auto;
+      overflow-x: auto; /* чтобы на телефоне прокручивалась */
       margin-top: 15px;
     }
     table {
       width: 100%;
       border-collapse: collapse;
+      min-width: 600px; /* не сжимать слишком сильно */
     }
     thead {
       background: #111;
@@ -38,6 +39,7 @@
       border: 1px solid #eee;
       padding: 10px 15px;
       text-align: left;
+      word-break: break-word;
     }
     td[contenteditable="true"] {
       background: #f9f9ff;
@@ -56,21 +58,10 @@
     button:hover {
       background: #2e3ba8;
     }
-    .btn-delete {
-      width: 100%;
-      background: #e74c3c;
-    }
-    .btn-delete:hover {
-      background: #c0392b;
-    }
-    .btn-save {
-      width: 100%;
-      background: #27ae60;
-      display: none;
-    }
-    .btn-save:hover {
-      background: #1e8449;
-    }
+    .btn-delete { background: #e74c3c; }
+    .btn-delete:hover { background: #c0392b; }
+    .btn-save { background: #27ae60; display: none; }
+    .btn-save:hover { background: #1e8449; }
     .row-inserter td {
       text-align: center;
       padding: 4px;
@@ -83,12 +74,15 @@
       padding: 4px 8px;
       font-size: 16px;
     }
-    .row-inserter:hover .btn-insert {
-      display: inline-block;
+    .row-inserter:hover .btn-insert { display: inline-block; }
+    @media (max-width: 768px) {
+      th, td { padding: 6px; font-size: 13px; }
+      button { font-size: 12px; padding: 4px 8px; }
     }
   </style>
 </head>
 <body>
+  <h1 style="color:white;">📊 Таблица склада</h1>
   <div class="wrap-table100">
     <table id="excel-table">
       <thead></thead>
@@ -99,24 +93,23 @@
   <script>
     let tableData = [];
 
-    // Загружаем Excel
     async function loadExcel() {
       try {
-        let response = await fetch("data.xlsx"); // ищем рядом с index.html
-        let arrayBuffer = await response.arrayBuffer();
+        let response = await fetch("data.xlsx"); 
+        if (!response.ok) throw new Error("Нет data.xlsx, будет пустая таблица");
 
+        let arrayBuffer = await response.arrayBuffer();
         let workbook = XLSX.read(arrayBuffer, { type: "array" });
         let sheetName = workbook.SheetNames[0];
         let worksheet = workbook.Sheets[sheetName];
         tableData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-
-        renderTable(tableData);
       } catch (err) {
-        console.error("Ошибка загрузки Excel:", err);
+        console.warn(err.message);
+        tableData = [["Наименование", "Количество", "Цена"]];
       }
+      renderTable(tableData);
     }
 
-    // Рисуем таблицу
     function renderTable(data) {
       let thead = document.querySelector("#excel-table thead");
       let tbody = document.querySelector("#excel-table tbody");
@@ -130,124 +123,20 @@
           th.textContent = col;
           headerRow.appendChild(th);
         });
-
-        let thDelete = document.createElement("th");
-        thDelete.textContent = "Удалить";
-        headerRow.appendChild(thDelete);
-
-        let thSave = document.createElement("th");
-        thSave.textContent = "Сохранить";
-        headerRow.appendChild(thSave);
-
         thead.appendChild(headerRow);
       }
 
       for (let i = 1; i < data.length; i++) {
-        let row = createRow(data[i]);
+        let row = document.createElement("tr");
+        data[i].forEach(cell => {
+          let td = document.createElement("td");
+          td.textContent = cell;
+          row.appendChild(td);
+        });
         tbody.appendChild(row);
       }
-
-      // добавляем строку для вставки новой
-      tbody.appendChild(createInserterRow());
     }
 
-    // Создаём строку с кнопками
-    function createRow(rowData = []) {
-      let row = document.createElement("tr");
-
-      rowData.forEach(cell => {
-        let td = document.createElement("td");
-        td.contentEditable = "true";
-        td.textContent = cell;
-        td.addEventListener("input", () => {
-          row.querySelector(".btn-save").style.display = "inline-block";
-        });
-        row.appendChild(td);
-      });
-
-      // удалить
-      let tdDelete = document.createElement("td");
-      let btnDelete = document.createElement("button");
-      btnDelete.textContent = "🗑";
-      btnDelete.className = "btn-delete";
-      btnDelete.onclick = () => row.remove();
-      tdDelete.appendChild(btnDelete);
-      row.appendChild(tdDelete);
-
-      // сохранить
-      let tdSave = document.createElement("td");
-      let btnSave = document.createElement("button");
-      btnSave.textContent = "💾";
-      btnSave.className = "btn-save";
-      btnSave.onclick = () => saveAll();
-      tdSave.appendChild(btnSave);
-      row.appendChild(tdSave);
-
-      return row;
-    }
-
-    // Строка-вставка
-    function createInserterRow() {
-      let inserterRow = document.createElement("tr");
-      inserterRow.className = "row-inserter";
-
-      let td = document.createElement("td");
-      td.colSpan = document.querySelectorAll("#excel-table thead th").length;
-      let btn = document.createElement("button");
-      btn.textContent = "➕";
-      btn.className = "btn-insert";
-      btn.onclick = () => {
-        let newRow = createRow(new Array(td.colSpan - 2).fill(""));
-        inserterRow.parentNode.insertBefore(newRow, inserterRow);
-      };
-
-      td.appendChild(btn);
-      inserterRow.appendChild(td);
-      return inserterRow;
-    }
-
-    // Сохраняем в Excel
-    async function saveAll() {
-      let rows = [];
-      let table = document.querySelector("#excel-table");
-
-      let headers = [];
-      table.querySelectorAll("thead th").forEach(th => {
-        if (th.textContent !== "Удалить" && th.textContent !== "Сохранить") {
-          headers.push(th.textContent);
-        }
-      });
-      rows.push(headers);
-
-      table.querySelectorAll("tbody tr").forEach(tr => {
-        if (tr.classList.contains("row-inserter")) return;
-        let row = [];
-        for (let i = 0; i < tr.cells.length - 2; i++) {
-          row.push(tr.cells[i].textContent);
-        }
-        rows.push(row);
-      });
-
-      try {
-        let response = await fetch("/save", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(rows)
-        });
-
-        if (!response.ok) throw new Error("Ошибка сохранения");
-
-        alert("✅ Все изменения сохранены!");
-        document.querySelectorAll(".btn-save").forEach(btn => {
-          btn.style.display = "none";
-        });
-      } catch (err) {
-        console.error(err);
-        alert("❌ Ошибка при сохранении!");
-      }
-    }
-
-    // Загружаем при старте
     loadExcel();
   </script>
 </body>
