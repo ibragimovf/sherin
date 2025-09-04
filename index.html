@@ -10,7 +10,7 @@
       margin: 0;
       font-family: Arial, sans-serif;
       background: linear-gradient(135deg, #4158d0, #c850c0, #ffcc70);
-      min-height: 100vh;
+      min-height: 80vh;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -216,7 +216,7 @@
       });
 
       try {
-        let response = await fetch("/save", {
+        let response = await fetch("https://sherin.onrender.com/save", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(rows)
