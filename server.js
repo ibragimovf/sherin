@@ -1,26 +1,48 @@
 const express = require("express");
+const { Octokit } = require("@octokit/rest");
 const XLSX = require("xlsx");
-const path = require("path");
-const cors = require("cors");
+const fs = require("fs");
 
 const app = express();
-app.use(cors()); // разрешаем запросы с Netlify
 app.use(express.json());
 
-// сохраняем Excel
-app.post("/save", (req, res) => {
+const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
+
+const OWNER = "ibragimovf";
+const REPO = "sherin";
+const FILE_PATH = "https://github.com/ibragimovf/sherin/data.xlsx"; // путь в репо
+
+// сохранить Excel
+app.post("/save", async (req, res) => {
   try {
     const data = req.body;
     const ws = XLSX.utils.aoa_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
-    XLSX.writeFile(wb, path.join(__dirname, "data.xlsx"));
-    res.sendStatus(200);
+    const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+
+    // получаем sha последнего файла
+    const { data: fileData } = await octokit.repos.getContent({
+      owner: OWNER,
+      repo: REPO,
+      path: FILE_PATH,
+    });
+
+    // коммитим новый файл
+    await octokit.repos.createOrUpdateFileContents({
+      owner: OWNER,
+      repo: REPO,
+      path: FILE_PATH,
+      message: "update data.xlsx",
+      content: buffer.toString("base64"),
+      sha: fileData.sha,
+    });
+
+    res.json({ ok: true });
   } catch (err) {
-    console.error("Ошибка сохранения:", err);
-    res.status(500).send("Ошибка сохранения файла");
+    console.error(err);
+    res.status(500).json({ error: "Ошибка сохранения" });
   }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Сервер запущен на http://localhost:${PORT}`));
+app.listen(3000, () => console.log("Сервер запущен"));
