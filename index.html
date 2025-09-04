@@ -19,17 +19,19 @@
     .wrap-table100 {
       background: #fff;
       width: 100%;
-      max-width: 1200px;
+      max-width: 100%;   /* было 1200px — убираем ограничение */
       padding: 20px;
       border-radius: 10px;
       box-shadow: 0 10px 30px rgba(0,0,0,.12);
-      overflow-x: auto; /* чтобы на телефоне прокручивалась */
+      overflow-x: auto;  /* чтобы на маленьких экранах прокручивалась */
       margin-top: 15px;
     }
+
     table {
       width: 100%;
       border-collapse: collapse;
-      min-width: 600px; /* не сжимать слишком сильно */
+      table-layout: auto; /* пусть колонки сами подстраиваются */
+      min-width: unset;   /* убрали фиксированные 600px */
     }
     thead {
       background: #111;
