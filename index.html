@@ -16,20 +16,22 @@
       align-items: center;
       padding: 20px;
     }
+    h1 { color: white; }
     .wrap-table100 {
       background: #fff;
       width: 100%;
-      max-width: 1200px;
+      max-width: 100%;
       padding: 20px;
       border-radius: 10px;
       box-shadow: 0 10px 30px rgba(0,0,0,.12);
-      overflow-x: auto; /* чтобы на телефоне прокручивалась */
+      overflow-x: auto;
       margin-top: 15px;
     }
     table {
       width: 100%;
       border-collapse: collapse;
-      min-width: unset;   /* убираем фиксированный минимум */
+      table-layout: auto;
+      min-width: unset;
     }
     thead {
       background: #111;
@@ -55,9 +57,7 @@
       font-size: 14px;
       transition: 0.2s;
     }
-    button:hover {
-      background: #2e3ba8;
-    }
+    button:hover { background: #2e3ba8; }
     .btn-delete { background: #e74c3c; }
     .btn-delete:hover { background: #c0392b; }
     .btn-save { background: #27ae60; display: none; }
@@ -82,7 +82,7 @@
   </style>
 </head>
 <body>
-  <h1 style="color:white;">📊 Таблица склада</h1>
+  <h1>📊 Таблица склада</h1>
   <div class="wrap-table100">
     <table id="excel-table">
       <thead></thead>
@@ -123,17 +123,114 @@
           th.textContent = col;
           headerRow.appendChild(th);
         });
+
+        let thDelete = document.createElement("th");
+        thDelete.textContent = "Удалить";
+        headerRow.appendChild(thDelete);
+
+        let thSave = document.createElement("th");
+        thSave.textContent = "Сохранить";
+        headerRow.appendChild(thSave);
+
         thead.appendChild(headerRow);
       }
 
       for (let i = 1; i < data.length; i++) {
-        let row = document.createElement("tr");
-        data[i].forEach(cell => {
-          let td = document.createElement("td");
-          td.textContent = cell;
-          row.appendChild(td);
-        });
+        let row = createRow(data[i]);
         tbody.appendChild(row);
+      }
+
+      tbody.appendChild(createInserterRow());
+    }
+
+    function createRow(rowData = []) {
+      let row = document.createElement("tr");
+
+      rowData.forEach(cell => {
+        let td = document.createElement("td");
+        td.contentEditable = "true";
+        td.textContent = cell;
+        td.addEventListener("input", () => {
+          row.querySelector(".btn-save").style.display = "inline-block";
+        });
+        row.appendChild(td);
+      });
+
+      let tdDelete = document.createElement("td");
+      let btnDelete = document.createElement("button");
+      btnDelete.textContent = "🗑";
+      btnDelete.className = "btn-delete";
+      btnDelete.onclick = () => row.remove();
+      tdDelete.appendChild(btnDelete);
+      row.appendChild(tdDelete);
+
+      let tdSave = document.createElement("td");
+      let btnSave = document.createElement("button");
+      btnSave.textContent = "💾";
+      btnSave.className = "btn-save";
+      btnSave.onclick = () => saveAll();
+      tdSave.appendChild(btnSave);
+      row.appendChild(tdSave);
+
+      return row;
+    }
+
+    function createInserterRow() {
+      let inserterRow = document.createElement("tr");
+      inserterRow.className = "row-inserter";
+
+      let td = document.createElement("td");
+      td.colSpan = document.querySelectorAll("#excel-table thead th").length;
+      let btn = document.createElement("button");
+      btn.textContent = "➕";
+      btn.className = "btn-insert";
+      btn.onclick = () => {
+        let newRow = createRow(new Array(td.colSpan - 2).fill(""));
+        inserterRow.parentNode.insertBefore(newRow, inserterRow);
+      };
+
+      td.appendChild(btn);
+      inserterRow.appendChild(td);
+      return inserterRow;
+    }
+
+    async function saveAll() {
+      let rows = [];
+      let table = document.querySelector("#excel-table");
+
+      let headers = [];
+      table.querySelectorAll("thead th").forEach(th => {
+        if (th.textContent !== "Удалить" && th.textContent !== "Сохранить") {
+          headers.push(th.textContent);
+        }
+      });
+      rows.push(headers);
+
+      table.querySelectorAll("tbody tr").forEach(tr => {
+        if (tr.classList.contains("row-inserter")) return;
+        let row = [];
+        for (let i = 0; i < tr.cells.length - 2; i++) {
+          row.push(tr.cells[i].textContent);
+        }
+        rows.push(row);
+      });
+
+      try {
+        let response = await fetch("/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(rows)
+        });
+
+        if (!response.ok) throw new Error("Ошибка сохранения");
+
+        alert("✅ Все изменения сохранены!");
+        document.querySelectorAll(".btn-save").forEach(btn => {
+          btn.style.display = "none";
+        });
+      } catch (err) {
+        console.error(err);
+        alert("❌ Ошибка при сохранении!");
       }
     }
 
