@@ -9,42 +9,43 @@ const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
 
 const OWNER = "ibragimovf";
 const REPO = "sherin";
-const FILE_PATH = "data.xlsx"; // ⚠️ путь к файлу внутри репо
+const FILE_PATH = "data.xlsx"; // путь внутри репозитория
 
-// сохранить Excel
 app.post("/save", async (req, res) => {
   try {
     const data = req.body;
 
-    // создаём excel из массива
+    // создаём Excel
     const ws = XLSX.utils.aoa_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
     const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
 
-    // получаем sha последнего файла
-    let fileData;
+    // получаем SHA
+    let sha = null;
     try {
-      fileData = await octokit.repos.getContent({
+      const { data: fileData } = await octokit.repos.getContent({
         owner: OWNER,
         repo: REPO,
         path: FILE_PATH,
       });
+      sha = fileData.sha;
+      console.log("Текущий SHA:", sha);
     } catch (e) {
-      // если файла нет, sha будет null
-      fileData = { data: { sha: null } };
+      console.log("Файл ещё не существует, создаём новый");
     }
 
-    // коммитим новый excel
-    await octokit.repos.createOrUpdateFileContents({
+    // пушим изменения
+    const response = await octokit.repos.createOrUpdateFileContents({
       owner: OWNER,
       repo: REPO,
       path: FILE_PATH,
       message: "update data.xlsx",
       content: buffer.toString("base64"),
-      sha: fileData.data.sha,
+      sha: sha || undefined,
     });
 
+    console.log("Файл успешно сохранён в GitHub:", response.status);
     res.json({ ok: true });
   } catch (err) {
     console.error("Ошибка сохранения:", err);
